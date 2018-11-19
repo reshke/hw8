@@ -12,23 +12,31 @@ import java.time.LocalDate
 
 object PeopleApp extends PeopleModule {
 
-  val uri = "jdbc:h2:~/dbres"
+   val uri = "jdbc:h2:~/dbres"
 
-  def getOldPerson(): Person =
-    DBRes.select("SELECT * FROM people WHERE birthday < ?", List(LocalDate.of(1979, 2, 20)))(readPerson).execute(uri).head
+  def getOldPerson(): DBRes[Person] = {
+//    val seq =  DBRes.select("SELECT * FROM people WHERE birthday < ?",
+//      List(LocalDate.of(1979, 2, 20)))(readPerson)
 
-  def clonePerson(person: Person): Person = {
-    val clone = person.copy(birthday = LocalDate.now())
-    storePerson(clone).execute(uri)
-    clone
+    DBRes.select("SELECT * FROM people WHERE birthday < ?",
+    List(LocalDate.of(1979, 2, 20)))(readPerson).map(ppl => ppl.head)
+//    DBRes.select("SELECT * FROM people WHERE birthday < ?", List(LocalDate.of(1979, 2, 20)))(readPerson).execute(uri).head
+  }
+  //DBRes.select("SELECT * FROM people WHERE birthday < ?", List(LocalDate.of(1979, 2, 20)))(readPerson).execute(uri).head
+
+  def clonePerson(person: Person): DBRes[Person] = {
+    DBRes(conn => person.copy(birthday = LocalDate.now()))
+  }
+
+  def getClone(): DBRes[Person] = {
+    for {_ <- setup(uri)
+         old <- getOldPerson()
+         clone <- clonePerson(old)}
+      yield clone
   }
 
   def main(args: Array[String]): Unit = {
-    setup(uri)
 
-    val old = getOldPerson()
-    val clone = clonePerson(old)
-
-    println(clone)
+      println(getClone().execute(uri))
   }
 }
